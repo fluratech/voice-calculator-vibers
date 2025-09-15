@@ -179,15 +179,16 @@
         let currentDisplay = null;
         
         if (recognition) {
-            recognition.continuous = true;
+            // Continuous causes duplicate issues on mobile, so keep it false
+            recognition.continuous = false;
             recognition.lang = 'en-US';
             recognition.interimResults = true;
-
+        
             recognition.onstart = () => {
                 voiceButton.classList.add('listening');
                 initialMessage.style.opacity = '0';
             };
-            
+        
             recognition.onend = async () => {
                 if (userWantsToListen) {
                     try {
@@ -200,18 +201,16 @@
                 }
                 voiceButton.classList.remove('listening');
                 if (accumulatedTranscript) {
-                    await processCalculation(accumulatedTranscript);
+                    await processCalculation(accumulatedTranscript.trim());
                 }
                 currentDisplay = null;
             };
-            
+        
             recognition.onerror = (event) => {
                 if (event.error === 'not-allowed') {
                     userWantsToListen = false;
                     handlePermissionDenied();
                 } else if (event.error === 'no-speech' || event.error === 'aborted') {
-                    // 'aborted' is expected when the user clicks stop.
-                    // We can safely ignore these to keep the console clean.
                     console.log(`Speech recognition event: ${event.error}. This is normal.`);
                 } else {
                     console.error("Speech recognition error:", event.error);
@@ -221,17 +220,19 @@
                     }
                 }
             };
-
+        
             recognition.onresult = (event) => {
-                let interim_transcript = '';
+                let interimTranscript = "";
+        
                 for (let i = event.resultIndex; i < event.results.length; ++i) {
+                    const transcript = event.results[i][0].transcript;
                     if (event.results[i].isFinal) {
-                        accumulatedTranscript += event.results[i][0].transcript.trim() + ' ';
+                        accumulatedTranscript += transcript.trim() + " ";
                     } else {
-                        interim_transcript += event.results[i][0].transcript;
+                        interimTranscript += transcript;
                     }
                 }
-                
+        
                 if (!currentDisplay) {
                     document.querySelectorAll('.calculation-entry:not(.history)').forEach(entry => {
                         entry.classList.add('history');
@@ -239,11 +240,12 @@
                     currentDisplay = createDisplayEntry('Listening...');
                     displayContainer.insertAdjacentElement('afterbegin', currentDisplay);
                 }
-                
-                currentDisplay.querySelector('.expression').textContent = accumulatedTranscript + interim_transcript;
+        
+                // Show final + interim without duplication
+                currentDisplay.querySelector('.expression').textContent =
+                    accumulatedTranscript + interimTranscript;
             };
         }
-
         function handlePermissionDenied() {
             initialMessage.innerHTML = "<p>Microphone access is blocked.</p><p>Please enable it in your browser settings to use voice commands.</p>";
             initialMessage.style.opacity = '1';
@@ -374,4 +376,5 @@ Response: "(100 / 5) + 20"`;
     </script>
 </body>
 </html>
+
 
